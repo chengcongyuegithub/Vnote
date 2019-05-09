@@ -1,0 +1,128 @@
+vnote_backup_file_826537664 /home/chengcongyue/文档/vnote_notebooks/chengcongyue/项目/简易知乎网站/关注和粉丝关注/关注和粉丝列表(二).md
+# 关注和粉丝列表(二)
+## 总结
+我们先来总结一下(一)中实现的内容
+分为两个模块follower和followee,其中follower表示一个实体下面有多少个人关注它,follower表示当前的用户关注了多少实体,就是相互的关系,然后就是Service层的两个基本操作follow和unfollow,因为要操作两个zset,所以这里面要采用事务的机制(redis)的事务机制.
+然后就是查询的操作,
+* 查询一个实体下面用多少人关注它(可以是人,也可以是问题)
+* 查询一个人关注的多少的实体(也就是登录的用户关注这哪些实体)
+* 判断一个人是否关注这一个实体(isfollower)
+以上就是Service层的操作,然后就是Controller层的操作
+首先就是关注和取消关注,在关注和取消关注的时候,都要发送一下站内信,也就是要用到异步队列,注意在关注完之后,在返回当前用户的关注信息,我们在重温一下前面的几个例子
+```
+@RequestMapping(path = {"/followUser"},method = {RequestMethod.GET,RequestMethod.POST})
+    @ResponseBody
+    public String followUser(@RequestParam("userId")int userId)
+    {
+        if(hostHolder.getUser()==null)
+        {
+           return ZhiHuUtil.getObjectJson(999);
+        }
+        boolean ret = followService.follow(hostHolder.getUser().getId(),
+                EntityType.ENTITY_USER,userId);
+        eventProducer.fireEvent(new EventModel(EventType.FOLLOW).setActorId(hostHolder.getUser().getId()).setEntityId(EntityType.ENTITY_USER).setEntityId(userId));
+        return ZhiHuUtil.getJSONString(ret?0:1,String.valueOf(followService.getFolloweeCount(hostHolder.getUser().getId(),EntityType.ENTITY_USER)));
+    }
+```
+关注某个人,肯定要得到这个人的id,首先判断是否登录,然后关注,然后发送站内信给这个人,然后返回当前人关注的列表.
+```
+ @RequestMapping(path = {"/followQuestion"},method = {RequestMethod.POST})
+    @ResponseBody
+    public String followQuestion(@RequestParam("questionId")int questionId)
+    {
+        if(hostHolder.getUser()==null)
+        {
+            return ZhiHuUtil.getObjectJson(999);
+        }
+        Question question=questionService.getQuestionById(questionId+"");
+        if(question==null)
+        {
+            return ZhiHuUtil.getJSONString(1,"the question not exists");
+        }
+        boolean res=followService.follow(hostHolder.getUser().getId(),EntityType.ENTITY_QUESTION,questionId);
+        eventProducer.fireEvent(new EventModel(EventType.FOLLOW).setActorId(hostHolder.getUser().getId())
+        .setEntityId(questionId).setEntityType(EntityType.ENTITY_QUESTION).setEntityOwnerId(question.getUserId()));
+
+        Map<String,Object> info=new HashMap<>();
+        info.put("id",hostHolder.getUser().getId());
+        info.put("count",followService.getFollowerCount(EntityType.ENTITY_QUESTION, questionId));
+        return ZhiHuUtil.getJSONString(res?0:1,String.valueOf(info));
+    }
+```
+关注问题最后,返回这个问题被哪些人关注着
+
+## 新的功能
+首先我们实现一个功能函数
+```
+ private List<VeiwObject> getUsersInfo(int localUserId,List<Integer> userIds)
+    {
+        List<VeiwObject> userInfos=new ArrayList<VeiwObject>();
+        for(Integer uid:userIds)
+        {
+            User user=userService.getUser(uid);
+            if(user==null)
+            {
+                continue;
+            }
+            VeiwObject vo=new VeiwObject();
+            vo.set("user",user);
+            vo.set("comment",commentService.getUserCommentCount(uid));
+            vo.set("followerCount",followService.getFollowerCount(EntityType.ENTITY_USER,uid));
+            vo.set("followeeCount",followService.getFolloweeCount(uid,EntityType.ENTITY_USER));
+            if(localUserId!=0)
+            {
+                vo.set("followed",followService.isFollower(localUserId,EntityType.ENTITY_USER,uid));
+            }else
+            {
+                vo.set("followed",false);
+            }
+            userInfos.add(vo);
+        }
+        return userInfos;
+    }
+```
+传入当前你的用户,然后传入一系列的userIds(一会在做说明),便利这个userIds,通过userIds获取这个用户,然后就是通过map承载这个用户的信息,信息如下
+```
+user 当前的人
+comment 当前的人的评论数
+followerCount 当前的人被多少人关注着
+folloeeCount  当前的人关注多少的人
+```
+然后就是展示follower和followee两个页面了,我们先看follower页面
+```
+  @RequestMapping(path = {"/user/{uid}/followers"},method = {RequestMethod.GET})
+    public String followers(Model model, @PathVariable("uid")int userId)
+    {
+        List<Integer> followedIds=followService.getFollowers(EntityType.ENTITY_USER,userId,0,10);
+        if(hostHolder.getUser()!=null)
+        {
+            model.addAttribute("followers",getUsersInfo(hostHolder.getUser().getId(),followedIds));
+        }else
+        {
+            model.addAttribute("followers",getUsersInfo(0,followedIds));
+        }
+        model.addAttribute("followerCount",followService.getFollowerCount(EntityType.ENTITY_USER,userId));
+        model.addAttribute("curUser",userService.getUser(userId));
+        return "followers";
+    }
+```
+获取当前的人被多少人关注着,获得它们的id,然后将这些人的信息放在getUsersInfo里面.
+然后获取到这人被多少人关注这的信息
+```
+  @RequestMapping(path = {"/user/{uid}/followees"},method = {RequestMethod.GET})
+    public String followees(Model model,@PathVariable("uid")int userId)
+    {
+        List<Integer> followeeIds=followService.getFollowees(userId,EntityType.ENTITY_USER,0,10);
+        if(hostHolder.getUser()!=null)
+        {
+            model.addAttribute("followees",getUsersInfo(hostHolder.getUser().getId(),followeeIds));
+        }else
+        {
+            model.addAttribute("followees",getUsersInfo(0,followeeIds));
+        }
+        model.addAttribute("followeeCount",followService.getFolloweeCount(userId,EntityType.ENTITY_USER));
+        model.addAttribute("curUser",userService.getUser(userId));
+        return "followees";
+    }
+```
+当前的人关注的哪些人.

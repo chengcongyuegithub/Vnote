@@ -1,0 +1,31 @@
+vnote_backup_file_826537664 /home/chengcongyue/文档/vnote_notebooks/chengcongyue/mysql与InnoDB/InnoDb学习笔记1.md
+# InnoDb学习笔记1
+###插入缓冲
+
+并不是缓冲池的一部分而和数据页一样是物理页的组成部分
+
+在Innodb中,主键是行唯一的标识符,一般的插入顺序就是按照主键的递增顺序来的
+所以聚集索引就是按照顺序存放的,不需要磁盘的随机读取
+对于这样的操作速度是非常快的,我们来举个例子
+```
+create Table t
+{
+   a int auto_increasment,
+   b varchar(32),
+   primary key(a),
+   key(b)
+};
+```
+其中表的内容是按照主键的顺序存放的,但是我们发现b也是索引,这里是非聚簇索引,它在磁盘上的存储方式就肯定不是按照b的顺序来存放的了,这个时候就要离散的去使用b,对它进行随机读取,这样的话,就会导致插入操作性能的降低,**B+树的特性导致了非聚簇索引的插入的离散型**
+
+因此插入缓冲(Insert buffer)就产生了,对于非聚簇索引的插入和更新操作,不会一次直接插入到索引页中,而是先判断插入的非聚集索引页是否在缓冲池中,若在就直接插入,不在的话,相当于是对数据库的一种欺骗.**这个时候我们进行INsert Buffer 和辅助索引叶子节点的merge操作**.
+
+使用Insert Buffer要同时满足两个条件
+* 索引是辅助索引
+* 索引不是唯一的
+
+Insert Buffer会有占用太多缓冲池的情况
+###Change Buffer
+原来是Insert Buffer,现在对DML操作都进行缓冲,Change Buffer的作用就是非唯一的辅助索引.
+###Insert Buffer的内部实现
+使用场景是 **非唯一的辅助索引**
