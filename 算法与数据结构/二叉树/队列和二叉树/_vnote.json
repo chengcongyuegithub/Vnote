@@ -1,0 +1,38 @@
+{
+    "created_time": "2019-05-15T09:58:49Z",
+    "files": [
+        {
+            "attachment_folder": "",
+            "attachments": [
+            ],
+            "created_time": "2019-05-15T09:59:11Z",
+            "modified_time": "2019-05-15T10:30:58Z",
+            "name": "二叉树的序列化和反序列化(一).md",
+            "tags": [
+            ]
+        },
+        {
+            "attachment_folder": "",
+            "attachments": [
+            ],
+            "created_time": "2019-05-15T09:59:30Z",
+            "modified_time": "2019-05-15T11:29:34Z",
+            "name": "二叉树的按行遍历.md",
+            "tags": [
+            ]
+        },
+        {
+            "attachment_folder": "",
+            "attachments": [
+            ],
+            "created_time": "2019-05-15T10:31:53Z",
+            "modified_time": "2019-05-15T11:55:27Z",
+            "name": "二叉树的序列化和反序列化(二).md",
+            "tags": [
+            ]
+        }
+    ],
+    "sub_directories": [
+    ],
+    "version": "1"
+}
