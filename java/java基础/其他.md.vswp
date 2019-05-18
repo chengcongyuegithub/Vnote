@@ -1,0 +1,13 @@
+vnote_backup_file_826537664 /home/chengcongyue/文档/vnote_notebooks/chengcongyue/java/java基础/其他.md
+# 其他
+## 题1
+```
+如下的Java程序 
+public class Test { 
+     public static void main(String[] args) { 
+     System.out.println(args[0]); 
+     } 
+} 
+ 若采用命令行“java Test one two three”调用，则程序输出的结果为：
+```
+java是命令,Test是class文件的名称,所以第一个one

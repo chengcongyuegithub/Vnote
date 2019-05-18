@@ -177,3 +177,36 @@ try 或者 catch 语句块会保留其返回值到本地变量表（Local Variab
 ```
 [finally](https://www.ibm.com/developerworks/cn/java/j-lo-finally/)
 ```
+## 题1
+```
+public class TestDemo
+{
+    public static String output = ””;
+    public static void foo(inti)
+    {
+        try
+        {
+            if (i == 1)
+            {
+                throw new Exception();
+            }
+        }
+        catch (Exception e)
+        {
+            output += “2”;
+            return ;
+        } finally
+        {
+            output += “3”;
+        }
+        output += “4”;
+    }
+    public static void main(String[] args)
+    {
+        foo(0);
+        foo(1);
+        System.out.println(output);
+    }
+}
+```
+3423
