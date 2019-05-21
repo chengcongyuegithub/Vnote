@@ -1,3 +1,4 @@
+vnote_backup_file_826537664 /home/chengcongyue/文档/vnote_notebooks/chengcongyue/java/java基础/继承,实现,抽象类,接口等.md
 # 继承
 ## 知识点1
 **在一个子类被创建的时候，首先会在内存中创建一个父类对象，然后在父类对象外部放上子类独有的属性，两者合起来形成一个子类的对象。**
