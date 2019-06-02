@@ -20,3 +20,21 @@
 新生代大部分要回收，采用Copying算法，快！
 老年代 大部分不需要回收，采用Mark-Compact算法
 ```
+```
+关于OutOfMemoryError，下面说法正确的是（）？
+正确答案: A B C   你的答案: A B (错误)
+java.lang.OutOfMemoryError: PermGen space 增加-XX:MaxPermSize这个参数的值的话，这个问题通常会得到解决。
+java.lang.OutOfMemoryError: Requested array size exceeds VM limit当你正准备创建一个超过虚拟机允许的大小的数组时，这条错误将会出现
+java.lang.OutOfMemoryError: Java heap space 一般情况下解决这个问题最快的方法就是通过-Xmx参数来增加堆的大小
+java.lang.OutOfMemoryError: nativeGetNewTLA这个异常只有在jRockit虚拟机时才会碰到
+```
+```
+java.lang.OutOfMemoryError: PermGen space
+查了一下为"永久代"内存大小不足，“永久代”的解释应该为JVM中的方法区，主要用于存储类信息，常量，静态变量，即时编译器编译后代码等。本错误仅限于Hotspot虚拟机，本区进行垃圾回收很少，不够直接加大简单粗暴。
+
+java.lang.OutOfMemoryError: Requested array size exceeds VM limit
+直接翻译报错信息：数组过长导致堆内存溢出，加大堆内存或者减少数组长度。
+
+java.lang.OutOfMemoryError: Java heap space
+堆内存不足，直接增大堆内存。
+```

@@ -1,0 +1,144 @@
+# Reactor(二)
+![](_v_images/20190528153413253_1217101409.png =660x)
+![](_v_images/20190528160311759_279838346.png =660x)
+## part1
+### handles
+```
+Identify resources that are managed by an OS.//表示了一种被操作系统管理的资源
+These resources commonly include network connec-
+tions, open files, timers, synchronization objects, etc.//网络连接,文件,计时器.....
+Handles are used in the logging server to identify
+socket endpoints so that a Synchronous Event
+Demultiplexer can wait for events to occur on
+them.//套接字的终点.为了同步事件分发器能够发生在它们身上的事件
+The two types of events the logging server is in-
+terested in are connection events and read events, 
+//在日志服务器中表示了两种事件一个是连接事件一个是read事件(handles表示了操作系统的一种资源,也同样是资源的一种集合)
+which represent incoming client connections and logging data,
+respectively. 
+The logging server maintains a separate
+connection for each client. 
+Every connection is repre-
+sented in the server by a socket handle.//每一个连接就表示一个handle
+```
+handle表示的就是资源的集合,一个连接就可以看做是一个handle,这个handle有两个事件一个事件是read事件一个是connect事件.
+### Synchronous Event Demultiplexer同步事件分发器
+```
+Blocks awaiting events to occur on a set of Handles.//相当于是等待事件发生的块
+It returns when it is possible to initiate an operation
+on a Handle without blocking.
+//在handle上有事件开始操作的时候,就可能返回值(对于socket来说,当有连接的或者是read的操作的时候就会返回结果)
+A common demultiplexer for I/O events is select [1], 
+which is an event
+demultiplexing system call provided by the UNIX and
+Win32 OS platforms.
+The select call indicates which
+Handles can have operations invoked on them syn-
+chronously without blocking the application process.
+```
+同步事件分离器,就是等待Handle发生事件
+### Event Handle
+```
+Specifies an interface consisting of a hook method [3]
+that abstractly represents the dispatching operation for
+service-specific events. This method must be imple-
+mented by application-specific services.
+```
+事件分离器,等待Handle发生事件,匹配的话就会使用Event Handle其中的回调方法
+### Concrete Event Handler
+```
+ Implements the hook method, as well as the meth-
+ods to process these events in an application-specific
+manner.//对上面的Event Handler的实现 
+Applications register Concrete Event
+Handlers with the Initiation Dispatcher to
+process certain types of events. When these events ar-
+rive, the Initiation Dispatcher calls back the
+hook method of the appropriate Concrete Event
+Handler.
+There are two Concrete Event Handlers in the
+logging server: Logging Handler and Logging
+Acceptor. 
+//对于日志服务器来说,两个Handler的处理.
+The Logging Handler is responsi-
+ble for receiving and processing logging records.
+//一个就是接受并且处理日志记录
+The Logging Acceptor creates and connects Logging
+Handlers that process subsequent logging records
+from clients.
+//一个就是接收信息
+```
+上面的Event Handler和下面的Concrete Event Handler一个是接口一个实现的关系.其实也是和handler的对应
+```
+socket是一个handle,它是连接和read两个事件的集合,所以它对应这两个Event_handler
+```
+### Initiation Dispatcher
+```
+Defines an interface for registering, removing, and
+dispatching Event Handlers.
+//定义了注册,移走,和分发事件的接口
+Ultimately, the
+Synchronous Event Demultiplexer is respon-
+sible for waiting until new events occur.
+//最终同步事件分发器会等待新的事件的发生
+When it detects new events, it informs the Initiation
+Dispatcher to call back application-specific event
+handlers.
+//发生了新的事件就会,回调方法
+Common events include connection accep-
+tance events, data input and output events, and timeout
+events.
+```
+## part2
+### 1
+```
+When an application registers a Concrete Event
+Handler with the Initiation Dispatcher
+// Concrete Event Handler注册到Initiation Dispatcher上面去
+the application indicates the type of event(s) this Event
+Handler wants the Initiation Dispatcher to
+notify it about// Initiation Dispatcher就会通知EventHandler
+when the event(s) occur on the associated Handle.//当和handler相关事件发生的时候(最开始的就是accept和连接)
+```
+### 2
+```
+The Initiation Dispatcher requests each
+Event Handler to pass back its internal Handle.
+This Handle identifies the Event Handler to the
+OS.
+```
+每一个事件处理器传回给Handle.
+### 3
+```
+After all Event Handlers are registered, an applica-
+tion calls handle events to start the Initiation
+Dispatcher’s event loop.
+At this point, the
+Initiation Dispatcher combines the Handle
+from each registered Event Handler and uses the
+Synchronous Event Demultiplexer to wait
+for events to occur on these Handles. 
+For in-
+stance, the TCP protocol layer uses the select syn-
+chronous event demultiplexing operation to wait for
+client logging record events to arrive on connected
+socket Handles.
+```
+### 4
+```
+The Synchronous Event Demultiplexer notifies the Initiation Dispatcher when a
+Handle corresponding to an event source becomes
+“ready,” e.g., that a TCP socket is “ready for reading.”
+```
+### 5
+```
+The Initiation Dispatcher calls back to
+the handle event hook method of the Event
+Handler to perform application-specific functionality
+in response to an event. The type of event that occurred
+can be passed as a parameter to the method and used
+internally by this method to perform additional service-
+specific demultiplexing and dispatching. An alternative
+dispatching approach is described in Section 9.4.
+
+```

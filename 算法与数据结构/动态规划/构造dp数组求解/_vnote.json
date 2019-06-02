@@ -130,6 +130,36 @@
             "name": "最长递增子串(二).md",
             "tags": [
             ]
+        },
+        {
+            "attachment_folder": "",
+            "attachments": [
+            ],
+            "created_time": "2019-05-25T10:32:16Z",
+            "modified_time": "2019-05-25T12:29:54Z",
+            "name": "最大公共子序列问题.md",
+            "tags": [
+            ]
+        },
+        {
+            "attachment_folder": "",
+            "attachments": [
+            ],
+            "created_time": "2019-05-28T11:05:15Z",
+            "modified_time": "2019-05-28T12:10:16Z",
+            "name": "最大公共子串问题.md",
+            "tags": [
+            ]
+        },
+        {
+            "attachment_folder": "",
+            "attachments": [
+            ],
+            "created_time": "2019-06-02T11:42:12Z",
+            "modified_time": "2019-06-02T12:27:26Z",
+            "name": "纸牌的博弈问题.md",
+            "tags": [
+            ]
         }
     ],
     "sub_directories": [

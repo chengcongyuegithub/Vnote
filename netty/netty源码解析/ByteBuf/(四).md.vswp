@@ -1,0 +1,129 @@
+vnote_backup_file_826537664 /home/chengcongyue/文档/vnote_notebooks/chengcongyue/netty/netty源码解析/ByteBuf/(四).md
+# (四)
+## 扩容
+- ByteBuffer是不能够扩容的
+```
+final int[] buffer 长度是固定不变的,一旦分配好就不能够扩容了.
+解决方案:创建一个全新的ByteBuffer对象,将之前的数据全部复制过去,一切都是开发者自己完成的
+```
+- ByteBuffer只使用一个position指针来表示对象信息,读写切换要使用flip或者rewind
+
+
+Netty的ByteBuf的优点:
+- 存储字节的数组是动态的,不足会自动扩容
+- 读写分开的
+```
+public ByteBuf writeByte(int value) {
+        ensureWritable0(1);//如果超过的话,就扩容,原来的2倍
+        _setByte(writerIndex++, value);//写,索引++
+        return this;
+    }
+    ------->
+     final void ensureWritable0(int minWritableBytes) {
+              
+        // Adjust to the new capacity.
+        capacity(newCapacity);//扩容操作
+    }
+    ------->
+     @Override
+    public ByteBuf capacity(int newCapacity) {
+        checkNewCapacity(newCapacity);
+
+        int oldCapacity = array.length;
+        byte[] oldArray = array;
+        if (newCapacity > oldCapacity) {
+            ...  byte[] newArray = allocateArray(newCapacity);
+            System.arraycopy(oldArray, 0, newArray, 0, oldArray.length);
+            .....
+        } else if (newCapacity < oldCapacity) {
+           ......
+                System.arraycopy(oldArray, readerIndex, newArray, readerIndex, writerIndex - readerIndex);
+            } else {
+                setIndex(newCapacity, newCapacity);
+            }
+            setArray(newArray);
+            freeArray(oldArray);
+        }
+        return this;
+    }
+```
+## 引用计数
+```
+public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf>
+----->
+public interface ReferenceCounted 
+/**
+ * A reference-counted object that requires explicit deallocation.显式的进行回收
+ * <p>
+ * When a new {@link ReferenceCounted} is instantiated, it starts with the reference count of {@code 1}.
+ * {@link #retain()} increases the reference count, and {@link #release()} decreases the reference count.
+ * If the reference count is decreased to {@code 0}, the object will be deallocated explicitly, and accessing
+ * the deallocated object will usually result in an access violation.
+ * </p>retain()+1
+ * <p>
+ * If an object that implements {@link ReferenceCounted} is a container of other objects that implement
+ * {@link ReferenceCounted}, the contained objects will also be released via {@link #release()} when the container's
+ * reference count becomes 0.
+ * </p>release()-1,为0时就要回收
+ */
+```
+```
+private ByteBuf retain0(int increment) {
+        for (;;) {
+            int refCnt = this.refCnt;//原本的引用计数
+            final int nextCnt = refCnt + increment;//期望变更之后的
+
+            // Ensure we not resurrect (which means the refCnt was 0) and also that we encountered an overflow.
+            if (nextCnt <= increment) {//要排除0的情况
+                throw new IllegalReferenceCountException(refCnt, increment);
+            }
+            if (refCntUpdater.compareAndSet(this, refCnt, nextCnt)) {//自旋锁 cas操作保证这个操作是原子的
+                break;
+            }
+        }
+        return this;
+    }
+```
+```
+private volatile int refCnt = 1;
+```
+对于一个刚刚创建的buf,它的计数为1,一定要加上volatile
+```
+ if (refCntUpdater.compareAndSet(this, refCnt, nextCnt)) {//自旋锁 cas操作保证这个操作是原子的
+                break;
+            }
+```
+compareAndSet基于硬件的,原子操作
+```
+ /**
+     * Atomically sets the field of the given object managed by this updater
+     * to the given updated value if the current value {@code ==} the
+     * expected value. This method is guaranteed to be atomic with respect to
+     * other calls to {@code compareAndSet} and {@code set}, but not
+     * necessarily with respect to other changes in the field.
+     *
+    public abstract boolean compareAndSet(T obj, int expect, int update);
+```
+```
+private static final AtomicIntegerFieldUpdater<AbstractReferenceCountedByteBuf> refCntUpdater =
+            AtomicIntegerFieldUpdater.newUpdater(AbstractReferenceCountedByteBuf.class, "refCnt");
+```
+```
+ /**
+     * Creates and returns an updater for objects with the given field.
+     * The Class argument is needed to check that reflective types and
+     * generic types match.
+     *
+     */
+    @CallerSensitive
+    public static <U> AtomicIntegerFieldUpdater<U> newUpdater(Class<U> tclass,
+                                                              String fieldName) {
+        return new AtomicIntegerFieldUpdaterImpl<U>
+            (tclass, fieldName, Reflection.getCallerClass());
+    }
+```
+## AtomicIntegerFieldUpdater实例
+- 1,更新器更新的必须是int类型的变量,不能是包装器类型
+- 2,volatile类型变量,可见性还有指令重排序
+- 3,实例变量CAS通过实例对象的偏移量进行赋值的
+- 4,可见范围的变量

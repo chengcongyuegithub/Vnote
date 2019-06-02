@@ -60,3 +60,16 @@ Java表达式转型规则由低到高转换：
 语句2正确：b6=b4+b5;b4、b5为final类型，不会自动提升，所以和的类型视左边变量类型而定，即b6可以是任意数值类型；
 语句3错误：b8=(b1+b4);虽然b4不会自动提升，但b1仍会自动提升，所以结果需要强转，b8=(byte)(b1+b4);
 语句4错误：**b7=(b2+b5); 同上。同时注意b7是final修饰，即只可赋值一次，便不可再改变。**
+
+## 4
+```
+public class Test
+{
+    public int x;
+    public static void main(String []args)
+    {
+        System. out. println("Value is" + x);
+    }
+}
+```
+错误,静态方法中不能够调用实例属性,x默认是0

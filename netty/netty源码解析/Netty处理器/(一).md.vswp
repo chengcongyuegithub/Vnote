@@ -1,0 +1,9 @@
+vnote_backup_file_826537664 /home/chengcongyue/文档/vnote_notebooks/chengcongyue/netty/netty源码解析/Netty处理器/(一).md
+# (一)
+- 1,入站处理器和出站处理器
+- 2,入站处理器的顶层ChannelInBoundHandler,出站ChannelOutboundHandler
+- 3,编解码器本质上都是处理器
+- 4,编码器:字节流的形式传递 encode
+- 5,解码器:decode
+`编码 从程序传入到网络,编码是ChannelOutboundHandler`
+`解码 从网络到程序,解码是ChannelInBoundHandler`
