@@ -5,6 +5,9 @@
     "sub_directories": [
         {
             "name": "简易知乎网站"
+        },
+        {
+            "name": "基于netty的聊天室"
         }
     ],
     "version": "1"

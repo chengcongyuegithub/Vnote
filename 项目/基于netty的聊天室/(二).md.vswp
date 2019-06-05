@@ -1,0 +1,259 @@
+vnote_backup_file_826537664 /home/chengcongyue/文档/vnote_notebooks/chengcongyue/项目/基于netty的聊天室/(二).md
+# (二)
+## 1,传统的IO
+### 1.1 传统IO的演示
+```
+public class IOServer {
+
+    public static void main(String[] args) throws Exception{
+        ServerSocket serverSocket=new ServerSocket(8080);
+        new Thread(()-> {
+           while(true)
+           {
+               try {
+                   //有一个客户机和服务器进行连接
+                   Socket socket=serverSocket.accept();
+                   new Thread(()->{
+                       try {
+                           int len;
+                           byte[] data=new byte[1024];
+                           InputStream inputStream=socket.getInputStream();
+                           while((len=inputStream.read(data))!=-1)
+                           {
+                               System.out.println(new String(data,0,len));
+                           }
+                       } catch (IOException e) {
+                           e.printStackTrace();
+                       }
+                   }).start();
+               } catch (IOException e) {
+                   e.printStackTrace();
+               }
+           }
+        }).start();
+    }
+}
+```
+解释一下上面的代码:最开始有一个独立于主线程的线程,这个线程就相当于是接受连接,然后每次有一个连接,就会创建一个线程,这个线程相当于是客户机和服务器的专属连接,其中的socket.accept(),这个得到的socket,表示的是服务器端的socket,我们通过使用这个socket,来处理服务器端的操作.
+`服务器端的这个socket就相当于是serverSocket的保姆,工人`
+```
+public class IOClient {
+    public static void main(String[] args) {
+        new Thread(()->{
+            try {
+                Socket socket = new Socket("localhost", 8080);//我们执行这个方法的时候,服务器的accept方法就是完成了连接
+                while(true)
+                {
+                    try {
+                       socket.getOutputStream().write((new Date()+" :hello world!!!").getBytes());
+                       Thread.sleep(2000);
+                    }catch (Exception e)
+                    {
+
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+}
+```
+### 1.2,传统IO网络编程的局限性
+IO 编程模型在客户端较少的情况下运行良好，但是对于客户端比较多的业务来说，单机服务端可能需要支撑成千上万的连接，IO 模型可能就不太合适了，我们来分析一下原因。
+
+上面的 demo，从服务端代码中我们可以看到，在传统的 IO 模型中，每个连接创建成功之后都需要一个线程来维护，每个线程包含一个 while 死循环，那么 1w 个连接对应 1w 个线程，继而 1w 个 while 死循环，这就带来如下几个问题：
+
+线程资源受限：线程是操作系统中非常宝贵的资源，同一时刻有大量的线程处于阻塞状态是非常严重的资源浪费，操作系统耗不起
+线程切换效率低下：单机 CPU 核数固定，线程爆炸之后操作系统频繁进行线程切换，应用性能急剧下降。
+除了以上两个问题，IO 编程中，我们看到数据读写是以字节流为单位。
+
+为了解决这三个问题，JDK 在 1.4 之后提出了 NIO。
+## 2.NIO
+### 2.1 解决问题1之线程资源受限
+NIO 编程模型中，新来一个连接不再创建一个新的线程，而是可以把这条连接直接绑定到某个固定的线程，然后这条连接所有的读写都由这个线程来负责，那么他是怎么做到的？我们用一幅图来对比一下 IO 与 NIO
+![](_v_images/20190605225811398_703959455.png =660x)
+如上图所示，IO 模型中，一个连接来了，会创建一个线程，对应一个 while 死循环，死循环的目的就是不断监测这条连接上是否有数据可以读，大多数情况下，1w 个连接里面同一时刻只有少量的连接有数据可读，因此，很多个 while 死循环都白白浪费掉了，因为读不出啥数据。
+
+而在 NIO 模型中，他把这么多 while 死循环变成一个死循环，这个死循环由一个线程控制，那么他又是如何做到一个线程，一个 while 死循环就能监测1w个连接是否有数据可读的呢？ 这就是 NIO 模型中 selector 的作用，一条连接来了之后，现在不创建一个 while 死循环去监听是否有数据可读了，`而是直接把这条连接注册到 selector 上，然后，通过检查这个 selector，就可以批量监测出有数据可读的连接，进而读取数据，下面我再举个非常简单的生活中的例子说明 IO 与 NIO 的区别`。
+
+在一家幼儿园里，小朋友有上厕所的需求，小朋友都太小以至于你要问他要不要上厕所，他才会告诉你。幼儿园一共有 100 个小朋友，有两种方案可以解决小朋友上厕所的问题：
+
+每个小朋友配一个老师。每个老师隔段时间询问小朋友是否要上厕所，如果要上，就领他去厕所，100 个小朋友就需要 100 个老师来询问，并且每个小朋友上厕所的时候都需要一个老师领着他去上，这就是IO模型，一个连接对应一个线程。
+所有的小朋友都配同一个老师。这个老师隔段时间询问所有的小朋友是否有人要上厕所，然后每一时刻把所有要上厕所的小朋友批量领到厕所，这就是 NIO 模型，所有小朋友都注册到同一个老师，对应的就是所有的连接都注册到一个线程，然后批量轮询。
+这就是 NIO 模型解决线程资源受限的方案，实际开发过程中，我们会开多个线程，每个线程都管理着一批连接，相对于 IO 模型中一个线程管理一条连接，消耗的线程资源大幅减少
+`将多个死循环变成一个死循环,这一个死循环隔一段事件去,去所有注册到选择器上的通道上,获取感兴趣的事件`
+### 2.2 解决问题2之线程切换效率低下
+由于 NIO 模型中线程数量大大降低，线程切换效率因此也大幅度提高
+### 2.3 解决问题3之面向流
+IO 读写是面向流的，一次性只能从流中读取一个或者多个字节，并且读完之后流无法再读取，你需要自己缓存数据。 而 NIO 的读写是面向 Buffer 的，你可以随意读取里面任何一个字节数据，不需要你自己缓存数据，这一切只需要移动读写指针即可。
+## 3.NIO实例代码实现
+```
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
+import java.util.Iterator;
+import java.util.Set;
+
+public class NIOServer {
+
+    public static void main(String[] args) throws IOException {
+        Selector serverSelector = Selector.open();//选择器,一直在接受连接
+        Selector clientSelector = Selector.open();//一直在等待读
+
+        new Thread(()->{
+            try {
+                ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+                serverSocketChannel.bind(new InetSocketAddress(8080));
+                serverSocketChannel.configureBlocking(false);
+                serverSocketChannel.register(serverSelector, SelectionKey.OP_ACCEPT);//将serverSocetChannel注册到选择器,然后感兴趣的事件是接受连接,表明这个通道的特性就是接受连接
+
+                while(true)
+                {
+                    if(serverSelector.select(1)>0)
+                    {
+                        Set<SelectionKey> selectionKeys = serverSelector.selectedKeys();//接受一系列的事件
+                        Iterator<SelectionKey> iterator = selectionKeys.iterator();//遍历这一系列的事件
+                        while(iterator.hasNext())
+                        {
+                            SelectionKey key = iterator.next();
+                            if(key.isAcceptable())//如果这个事件是isAcceptable(),表明有客户机要连接服务器了,服务器有了接受连接的事件
+                            {
+                                try {
+                                    SocketChannel client=((ServerSocketChannel)key.channel()).accept();//我们创建一个client
+                                    System.out.println("成功!!!");
+                                    client.configureBlocking(false);
+                                    client.register(clientSelector,SelectionKey.OP_READ);//注册到clientSelector,这个客户机的特性就是写数据到服务器,感兴趣的事情是从客户机读数据
+                                }finally {
+                                    iterator.remove();
+                                }
+                            }
+                        }
+                    }
+                }
+            }catch (Exception e1)
+            {
+                e1.printStackTrace();
+            }
+        }).start();
+
+        new Thread(()->{
+           try {
+              while(true)
+              {
+                  if(clientSelector.select(1)>0)
+                  {
+                      Set<SelectionKey> selectionKeys = clientSelector.selectedKeys();
+                      Iterator<SelectionKey> iterator = selectionKeys.iterator();
+                      while(iterator.hasNext())
+                      {
+                          SelectionKey key = iterator.next();
+                          if(key.isReadable())
+                          {
+                              try {
+                                  SocketChannel client=(SocketChannel)key.channel();
+                                  ByteBuffer byteBuffer=ByteBuffer.allocate(1024);
+                                  client.read(byteBuffer);
+                                  byteBuffer.flip();
+                                  System.out.println(Charset.defaultCharset().newDecoder().decode(byteBuffer)
+                                          .toString());
+                              }finally {
+                                  iterator.remove();
+                                  key.interestOps(SelectionKey.OP_READ);
+                              }
+                          }
+                      }
+                  }
+              }
+           }catch (Exception e)
+           {
+               e.printStackTrace();
+           }
+        }).start();
+    }
+}
+```
+NIO 模型中通常会有两个线程，每个线程绑定一个轮询器 selector ，在我们这个例子中serverSelector负责轮询是否有新的连接，clientSelector负责轮询连接是否有数据可读
+服务端监测到新的连接之后，不再创建一个新的线程，而是直接将新连接绑定到clientSelector上，这样就不用 IO 模型中 1w 个 while 循环在死等，参见(1)
+clientSelector被一个 while 死循环包裹着，如果在某一时刻有多条连接有数据可读，那么通过 clientSelector.select(1)方法可以轮询出来，进而批量处理，参见(2)
+数据的读写面向 Buffer，参见(3)
+## 4.netty的简介
+### 4.1 使用netty的原因
+那么 Netty 到底是何方神圣？ 用一句简单的话来说就是：Netty 封装了 JDK 的 NIO，让你用得更爽，你不用再写一大堆复杂的代码了。 用官方正式的话来说就是：Netty 是一个异步事件驱动的网络应用框架，用于快速开发可维护的高性能服务器和客户端。
+下面是我总结的使用 Netty 不使用 JDK 原生 NIO 的原因
+使用 JDK 自带的NIO需要了解太多的概念，编程复杂，一不小心 bug 横飞
+Netty 底层 IO 模型随意切换，而这一切只需要做微小的改动，改改参数，Netty可以直接从 NIO 模型变身为 IO 模型
+Netty 自带的拆包解包，异常检测等机制让你从NIO的繁重细节中脱离出来，让你只需要关心业务逻辑
+Netty 解决了 JDK 的很多包括空轮询在内的 Bug
+Netty 底层对线程，selector 做了很多细小的优化，精心设计的 reactor 线程模型做到非常高效的并发处理
+自带各种协议栈让你处理任何一种通用协议都几乎不用亲自动手
+Netty 社区活跃，遇到问题随时邮件列表或者 issue
+Netty 已经历各大 RPC 框架，消息中间件，分布式通信中间件线上的广泛验证，健壮性无比强大
+### 4.2 netty入门程序
+```
+    <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-all</artifactId>
+        <version>4.1.6.Final</version>
+    </dependency>
+```
+#### 4.2.1 netty之服务器程序
+```
+public class NettyClient {
+
+    public static void main(String[] args) throws Exception {
+        Bootstrap bootstrap=new Bootstrap();
+        NioEventLoopGroup group=new NioEventLoopGroup();
+        bootstrap.group(group).channel(NioSocketChannel.class).
+                handler(new ChannelInitializer<NioSocketChannel>() {
+                    @Override
+                    protected void initChannel(NioSocketChannel ch) throws Exception {
+                          ch.pipeline().addLast(new StringEncoder());
+                    }
+                });
+        Channel channel = bootstrap.connect("127.0.0.1", 8080).channel();
+        while(true)
+        {
+            channel.writeAndFlush(new Date()+":hello world!!!");
+            Thread.sleep(2000);
+        }
+    }
+}
+```
+#### 4.2.2 netty之客户机程序
+```
+public class NettyServer {
+
+    public static void main(String[] args) {
+        ServerBootstrap serverBootstrap=new ServerBootstrap();
+        NioEventLoopGroup boss=new NioEventLoopGroup();
+        NioEventLoopGroup worker=new NioEventLoopGroup();
+
+        try {
+            serverBootstrap.group(boss,worker).channel(NioServerSocketChannel.class).
+            childHandler(new ChannelInitializer<NioSocketChannel>() {
+                @Override
+                protected void initChannel(NioSocketChannel ch) throws Exception {
+                     ch.pipeline().addLast(new StringDecoder());
+                     ch.pipeline().addLast(new SimpleChannelInboundHandler<String>() {
+                         @Override
+                         protected void channelRead0(ChannelHandlerContext channelHandlerContext, String s) throws Exception {
+                             System.out.println(s);
+                         }
+                     });
+                }
+            }).bind(8080);
+
+        }catch (Exception e)
+        {
+            boss.shutdownGracefully();
+            worker.shutdownGracefully();
+        }
+    }
+}
+```
