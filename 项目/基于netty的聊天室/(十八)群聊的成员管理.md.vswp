@@ -1,0 +1,101 @@
+vnote_backup_file_826537664 /home/chengcongyue/文档/vnote_notebooks/chengcongyue/项目/基于netty的聊天室/(十八)群聊的成员管理.md
+# (十八)群聊的成员管理
+在其中实现加入群聊,退出群聊,查看群组人数
+## packet
+```
+public interface Command {
+
+    Byte LOGIN_REQUEST=1;
+    Byte LOGIN_RESPONSE=2;
+    Byte MESSAGE_REQUEST=3;
+    Byte MESSAGE_RESPONSE=4;
+    Byte LOGOUT_REQUEST=5;
+    Byte LOGOUT_RESPONSE=6;
+    //创建群聊
+    Byte CREATE_GROUP_REQEUST=7;
+    Byte CREATE_GROUP_RESPONSE=8;
+    //查看群聊人员
+    Byte LIST_GROUP_MEMBERS_REQUEST=9;
+    Byte LIST_GROUP_MEMBERS_RESPONSE=10;
+    //加入群聊
+    Byte JOIN_GROUP_REQUEST=11;
+    Byte JOIN_GROUP_RESPONSE=12;
+    //退出群聊
+    Byte QUIT_GROUP_REQUEST=13;
+    Byte QUIT_GROUP_RESPONSE=14;
+}
+```
+然后就是各个包的实现
+```
+public class JoinGroupRequestPacket extends Packet{
+
+    private String groupId;
+    @Override
+    public Byte getCommand() {
+        return Command.JOIN_GROUP_REQUEST;
+    }
+}
+public class ListGroupMembersRequestPacket extends Packet{
+
+    private String groupId;
+    @Override
+    public Byte getCommand() {
+        return Command.LIST_GROUP_MEMBERS_REQUEST;
+    }
+}
+public class LogoutRequestPacket extends Packet{
+
+    @Override
+    public Byte getCommand() {
+        return Command.LOGOUT_REQUEST;
+    }
+}
+public class QuitGroupRequestPacket extends Packet{
+
+    private String groupId;
+    @Override
+    public Byte getCommand() {
+        return Command.QUIT_GROUP_REQUEST;
+    }
+}
+```
+然后就是Response包
+```
+public class JoinGroupResponsePacket extends Packet{
+    private String groupId;
+    private boolean success;
+    private String reason;
+    @Override
+    public Byte getCommand() {
+        return Command.JOIN_GROUP_RESPONSE;
+    }
+}
+public class ListGroupMembersResponsePacket extends Packet{
+    private String groupId;
+    private List<Session> sessionList;
+    @Override
+    public Byte getCommand() {
+        return Command.LIST_GROUP_MEMBERS_RESPONSE;
+    }
+}
+public class LogoutResponsePacket extends Packet{
+
+    private boolean success;
+    private String reason;
+    @Override
+    public Byte getCommand() {
+        return Command.LOGOUT_RESPONSE;
+    }
+}
+public class QuitGroupResponsePacket extends Packet{
+
+    private String groupId;
+    private boolean success;
+    private String reason;
+    @Override
+    public Byte getCommand() {
+        return Command.QUIT_GROUP_RESPONSE;
+    }
+}
+```
+## 客户端控制台
